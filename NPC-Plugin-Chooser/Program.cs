@@ -10,8 +10,12 @@ using NPCPluginChooser.Settings;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Converters;
-using Noggog.Utility;
 using Mutagen.Bethesda.Json;
+using Mutagen.Bethesda.Plugins;
+using Mutagen.Bethesda.Plugins.Cache;
+using Mutagen.Bethesda.Plugins.Order;
+using Noggog;
+using Mutagen.Bethesda.Archives;
 
 namespace NPCPluginChooser
 {
@@ -76,7 +80,7 @@ namespace NPCPluginChooser
                 outputSettings.SuppressKnownMissingFileWarnings = settings.SuppressKnownMissingFileWarnings;
 
                 int counter = 0;
-                foreach (var npcCO in state.LoadOrder.PriorityOrder.Npc().WinningContextOverrides().ToList())
+                foreach (IModContext<ISkyrimMod, ISkyrimModGetter, INpc, INpcGetter>? npcCO in state.LoadOrder.PriorityOrder.Npc().WinningContextOverrides().ToList())
                 {
                     if (generateSettingsForNPC(npcCO, settings, outputSettings, PluginDirectoryDict, state))
                     {
@@ -135,13 +139,13 @@ namespace NPCPluginChooser
                     }
                     string currentDataDir = PluginDirectoryDict[PPS.Plugin];
 
-                    state.LoadOrder.TryGetValue(PPS.Plugin, out var currentModContext);
+                    state.LoadOrder.TryGetValue(PPS.Plugin, out IModListing<ISkyrimModGetter>? currentModContext);
                     if (currentModContext != null && currentModContext.Mod != null)
                     {
                         foreach (var npc in currentModContext.Mod.Npcs)
                         {
                             bool isTemplated = NPCisTemplated(npc);
-                            if (PPS.SelectAll || (PPS.InvertSelection == false && PPS.NPCs.Contains(npc.AsLinkGetter())) || (PPS.InvertSelection == true && !PPS.NPCs.Contains(npc.AsLinkGetter())))
+                            if (PPS.SelectAll || (PPS.InvertSelection == false && PPS.NPCs.Contains(npc.ToLinkGetter())) || (PPS.InvertSelection == true && !PPS.NPCs.Contains(npc.ToLinkGetter())))
                             {
                                 string NPCdispStr = npc.Name + " | " + npc.EditorID + " | " + npc.FormKey.ToString();
                                 Console.WriteLine("Forwarding appearance of {0}", NPCdispStr);
@@ -357,7 +361,7 @@ namespace NPCPluginChooser
                     outputSettings.PluginsToForward.Add(currentPPS);
                 }
 
-                currentPPS.NPCs.Add(npcCO.Record.AsLinkGetter());
+                currentPPS.NPCs.Add(npcCO.Record.ToLinkGetter());
             }
 
             return true;
@@ -535,14 +539,14 @@ namespace NPCPluginChooser
 
                     if (meshFound == false && BSAHandler.HaveFile(BSAmeshPath, currentContextReaders, out var archiveMeshFile) && archiveMeshFile != null)
                     {
-                        archiveMeshFile.CopyDataTo(NifStream);
+                        archiveMeshFile.AsStream().CopyTo(NifStream);
                         meshFound = true;
                         NifBSAWinner = context.ModKey;
                     }
 
                     if (texFound == false && BSAHandler.HaveFile(BSAtexPath, currentContextReaders, out var archiveTexFile) && archiveTexFile != null)
                     {
-                        archiveTexFile.CopyDataTo(DdsStream);
+                        archiveTexFile.AsStream().CopyTo(DdsStream);
                         texFound = true;
                         DdsBSAWinner = context.ModKey;
                     }
